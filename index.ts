@@ -1,4 +1,4 @@
-import Discord, { PermissionsString } from "discord.js";
+import Discord, { MessageActivityType, PermissionsString } from "discord.js";
 import fs from "fs";
 
 declare module "discord.js" {
@@ -38,7 +38,7 @@ class Metadata {
     .filter((f) => !f.startsWith("#"))
     .filter((f) => f.endsWith(".json"));
 
-  constructor(id: string, type: "channel" | "member" | "message") {
+  constructor(id: string[] | string, type: "channel" | "member" | "message") {
     this.id = id;
     this.type = type;
   }
@@ -75,6 +75,14 @@ class Metadata {
     }
   }
 
+  static exists(id: string[] | string) {
+    if (typeof id === "string") {
+      return fs.existsSync(`${__dirname}/metadatas/${id}.json`);
+    } else {
+      return fs.existsSync(`${__dirname}/metadatas/${id[0]}-${id[1]}.json`);
+    }
+  }
+
   exists() {
     if (this.type === "member" || this.type === "message") {
       return fs.existsSync(
@@ -98,6 +106,14 @@ class Metadata {
     return mda;
   }
 
+  has(name: string) {
+    if (!this.exists()) this.write();
+    let f = this.req();
+    let mda = f.metadatas;
+
+    return mda.find((m) => m.name === name) ? true : false;
+  }
+
   add(name: string, value: string) {
     if (!this.exists()) this.write();
     let f = this.req();
@@ -107,6 +123,67 @@ class Metadata {
     mda.push({ name: name, value: value });
 
     this.write(mda);
+  }
+
+  static convertArrayToMap(array: { name: string; value: string }[]) {
+    let m = new Map();
+    array.forEach((a) => m.set(a.name, a.value));
+
+    return m;
+  }
+
+  static convertMapToArray(map: Map<any, any>) {
+    let arr: { name: string; value: string }[] = [];
+    map.forEach((v, k) => {
+      arr.push({ name: k, value: v });
+    });
+
+    return arr;
+  }
+
+  static syncMessage(prototype: typeof Discord.Message.prototype) {
+    let mda = new Metadata([prototype.channelId, prototype.id], "message");
+    let newArr = Metadata.convertMapToArray(prototype.metadata);
+
+    prototype.metadata.forEach((v, k) => {
+      if (!mda.has(k)) mda.add(k, v);
+    });
+
+    let missing = mda.metadatas.filter((f) => !newArr.includes(f));
+
+    missing.forEach((m) => {
+      mda.write(mda.remove(m.name));
+    });
+  }
+
+  static syncMember(prototype: typeof Discord.GuildMember.prototype) {
+    let mda = new Metadata([prototype.guild.id, prototype.id], "member");
+    let newArr = Metadata.convertMapToArray(prototype.metadata);
+
+    prototype.metadata.forEach((v, k) => {
+      if (!mda.has(k)) mda.add(k, v);
+    });
+
+    let missing = mda.metadatas.filter((f) => !newArr.includes(f));
+
+    missing.forEach((m) => {
+      mda.write(mda.remove(m.name));
+    });
+  }
+
+  static syncChannel(prototype: typeof Discord.BaseChannel.prototype) {
+    let mda = new Metadata(prototype.id, "channel");
+    let newArr = Metadata.convertMapToArray(prototype.metadata);
+
+    prototype.metadata.forEach((v, k) => {
+      if (!mda.has(k)) mda.add(k, v);
+    });
+
+    let missing = mda.metadatas.filter((f) => !newArr.includes(f));
+
+    missing.forEach((m) => {
+      mda.write(mda.remove(m.name));
+    });
   }
 }
 
@@ -142,6 +219,7 @@ class Metadata {
             if (Discord.BaseChannel.prototype.id === mda.id)
               Discord.BaseChannel.prototype.metadata.set(m.name, m.value);
           });
+          break;
 
         case "message":
           mda.metadatas.forEach((m) => {
@@ -151,6 +229,7 @@ class Metadata {
             )
               Discord.Message.prototype.metadata.set(m.name, m.value);
           });
+          break;
 
         case "member":
           mda.metadatas.forEach((m) => {
@@ -160,9 +239,14 @@ class Metadata {
             )
               Discord.GuildMember.prototype.metadata.set(m.name, m.value);
           });
+          break;
       }
     });
   });
 
-  setInterval(() => {}, 0);
+  setInterval(() => {
+    Metadata.syncMessage(Discord.Message.prototype);
+    Metadata.syncChannel(Discord.BaseChannel.prototype);
+    Metadata.syncMember(Discord.GuildMember.prototype);
+  }, 0);
 })();

@@ -1,5 +1,28 @@
 {
   "dependencies": {
     "discord.js": "^14.9.0"
-  }
+  },
+  "types": "./index.d.ts",
+  "name": "enchantcord",
+  "description": "Discord.js Enhanced, Metadatas, Error System &amp; More | more efficient than ddas",
+  "version": "1.0.0-alpha",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bots",
+    "discord",
+    "slash",
+    "commands",
+    "command",
+    "bot",
+    "discord.js",
+    "metadatas",
+    "metadata",
+    "enhanced"
+  ],
+  "author": "KinyaDev",
+  "license": "ISC"
 }
