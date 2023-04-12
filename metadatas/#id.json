@@ -1,0 +1,9 @@
+{
+  "type": "channel, member or message",
+  "metadatas": [
+    {
+      "name": "string",
+      "value": "string"
+    }
+  ]
+}
